@@ -56,6 +56,7 @@ from urllib.parse import urlparse
 import re
 
 from rdflib import Graph, RDF, URIRef, util, term,Namespace,Literal,BNode,XSD
+from rdflib.plugins.sparql import prepareQuery
 from fsl_seg_to_nidm.fslutils import read_fsl_stats, convert_stats_to_nidm, create_cde_graph
 from io import StringIO
 
@@ -111,7 +112,6 @@ def add_seg_data(nidmdoc,subjid,fs_stats_entity_id, add_to_nidm=False, forceagen
         break
     else:
         software_agent = niiri[getUUID()]
-
     nidmdoc.add((software_agent,RDF.type,Constants.PROV['Agent']))
     neuro_soft=Namespace(Constants.NIDM_NEUROIMAGING_ANALYSIS_SOFTWARE)
     nidmdoc.add((software_agent,Constants.NIDM_NEUROIMAGING_ANALYSIS_SOFTWARE,URIRef(Constants.FSL)))
@@ -188,6 +188,26 @@ def add_seg_data(nidmdoc,subjid,fs_stats_entity_id, add_to_nidm=False, forceagen
                  for row in qres:
                     print('Found subject ID: %s in NIDM file (agent: %s)' %(subjid,row[0]))
                     participant_agent = row[0]
+            # adding T1w object with prov used to the software activity
+            query_acq = prepareQuery(
+                """
+                PREFIX prov:  <http://www.w3.org/ns/prov#>
+                PREFIX nidm:  <http://purl.org/nidash/nidm#>
+                PREFIX sio:   <http://semanticscience.org/resource/>
+                PREFIX nfo:   <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#>
+                SELECT DISTINCT ?acqObj
+                WHERE {
+                ?acqObj a nidm:AcquisitionObject ;
+                prov:wasGeneratedBy/prov:qualifiedAssociation/prov:agent ?subject .
+                }
+                """
+            )
+            row = next(iter(nidmdoc.query(query_acq, initBindings={"subject": participant_agent})), None)
+            if row is None:
+                raise RuntimeError("No AcquisitionObject found for that subject")
+
+            acq_obj = row.acqObj
+            nidmdoc.add((software_activity, Constants.PROV['used'], acq_obj))
 
     #create a blank node and qualified association with prov:Agent for participant
     association_bnode = BNode()
