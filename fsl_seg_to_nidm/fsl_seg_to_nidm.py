@@ -207,7 +207,7 @@ def add_seg_data(nidmdoc,subjid,fs_stats_entity_id, add_to_nidm=False, forceagen
             res = list(nidmdoc.query(query_acq, initBindings={"subject": participant_agent}))
             if not res:
                 #raise RuntimeError("No AcquisitionObject found for that subject")
-                warnings.warn("No AcquisitionObject found for that subject")
+                warnings.warn(f"No T1-weighted AcquisitionObject found for subject {subjid}")
                 acq_obj = None
             elif len(res) > 1:
                 raise RuntimeError(f"Expected exactly 1 AcquisitionObject, found {len(res)} ")
