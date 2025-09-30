@@ -198,16 +198,24 @@ def add_seg_data(nidmdoc,subjid,fs_stats_entity_id, add_to_nidm=False, forceagen
                 SELECT DISTINCT ?acqObj
                 WHERE {
                 ?acqObj a nidm:AcquisitionObject ;
-                prov:wasGeneratedBy/prov:qualifiedAssociation/prov:agent ?subject .
+                prov:wasGeneratedBy/prov:qualifiedAssociation/prov:agent ?subject ;
+                nidm:hadAcquisitionModality nidm:MagneticResonanceImaging ;
+                nidm:hadImageUsageType nidm:Anatomical
                 }
                 """
             )
-            row = next(iter(nidmdoc.query(query_acq, initBindings={"subject": participant_agent})), None)
-            if row is None:
-                raise RuntimeError("No AcquisitionObject found for that subject")
+            res = list(nidmdoc.query(query_acq, initBindings={"subject": participant_agent}))
+            if not res:
+                #raise RuntimeError("No AcquisitionObject found for that subject")
+                warnings.warn("No AcquisitionObject found for that subject")
+                acq_obj = None
+            elif len(res) > 1:
+                raise RuntimeError(f"Expected exactly 1 AcquisitionObject, found {len(res)} ")
+            else:
+                acq_obj = res[0].acqObj
 
-            acq_obj = row.acqObj
-            nidmdoc.add((software_activity, Constants.PROV['used'], acq_obj))
+            if acq_obj:
+                nidmdoc.add((software_activity, Constants.PROV['used'], acq_obj))
 
     #create a blank node and qualified association with prov:Agent for participant
     association_bnode = BNode()
